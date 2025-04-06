@@ -26,7 +26,9 @@ export async function GET(request: Request) {
     }
 
     const whereClause: any = {
-      date: new Date(date)
+      date: {
+        equals: new Date(date)
+      }
     }
 
     if (department && department !== 'all') {

@@ -127,9 +127,8 @@ export default function StaffRosterPage() {
     setError(null);
 
     try {
-      const [year, month, day] = shiftDate.split('-');
-      const startDateTime = new Date(`${year}-${month}-${day}T${startTime}:00`);
-      const endDateTime = new Date(`${year}-${month}-${day}T${endTime}:00`);
+      const startDateTime = new Date(`${shiftDate}T${startTime}`);
+      const endDateTime = new Date(`${shiftDate}T${endTime}`);
 
       const response = await fetch('/api/staff/shifts', {
         method: 'POST',
