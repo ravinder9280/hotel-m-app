@@ -1,0 +1,154 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Patient {
+  id            String    @id @default(uuid())
+  firstName     String
+  lastName      String
+  dateOfBirth   DateTime
+  gender        String
+  email         String?
+  phone         String
+  address       String
+  status        String    @default("Active")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  appointments  Appointment[]
+  admissions    Admission[]
+  medicalRecords MedicalRecord[]
+  bills         Bill[]
+  insuranceClaims InsuranceClaim[]
+}
+
+model Appointment {
+  id            String    @id @default(uuid())
+  patientId     String
+  patient       Patient   @relation(fields: [patientId], references: [id])
+  dateTime      DateTime
+  status        String    // Scheduled, Completed, Cancelled, No-show
+  type          String
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Admission {
+  id            String    @id @default(uuid())
+  patientId     String
+  patient       Patient   @relation(fields: [patientId], references: [id])
+  roomNumber    String
+  admissionDate DateTime  @default(now())
+  dischargeDate DateTime?
+  status        String    // Active, Discharged
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  bill          Bill?
+}
+
+model MedicalRecord {
+  id            String    @id @default(uuid())
+  patientId     String
+  patient       Patient   @relation(fields: [patientId], references: [id])
+  diagnosis     String
+  treatment     String
+  prescription  String?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Staff {
+  id            String    @id @default(uuid())
+  firstName     String
+  lastName      String
+  email         String    @unique
+  role          String
+  department    String
+  joinDate      DateTime
+  status        String    @default("Active")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  attendance    Attendance[]
+  shifts        Shift[]
+}
+
+model Attendance {
+  id            String    @id @default(uuid())
+  staffId       String
+  staff         Staff     @relation(fields: [staffId], references: [id])
+  date          DateTime
+  checkIn       DateTime
+  checkOut      DateTime?
+  status        String    // Present, Absent, Late
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Shift {
+  id            String    @id @default(uuid())
+  staffId       String
+  staff         Staff     @relation(fields: [staffId], references: [id])
+  date          DateTime
+  startTime     DateTime
+  endTime       DateTime
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Bill {
+  id            String    @id @default(uuid())
+  patientId     String
+  patient       Patient   @relation(fields: [patientId], references: [id])
+  amount        Float
+  dueDate       DateTime
+  status        String    // Pending, Paid, Overdue
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  admission     Admission? @relation(fields: [admissionId], references: [id])
+  admissionId   String?   @unique
+  payments      Payment[]
+}
+
+model Payment {
+  id            String    @id @default(uuid())
+  billId        String
+  bill          Bill      @relation(fields: [billId], references: [id])
+  amount        Float
+  paymentDate   DateTime  @default(now())
+  paymentMethod String    // Cash, Credit Card, Insurance
+  status        String    // Completed, Pending, Failed
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model InsuranceClaim {
+  id            String    @id @default(uuid())
+  patientId     String
+  patient       Patient   @relation(fields: [patientId], references: [id])
+  provider      String
+  policyNumber  String
+  claimAmount   Float
+  status        String    // Submitted, Approved, Rejected, Pending
+  submissionDate DateTime @default(now())
+  responseDate  DateTime?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Admin {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
