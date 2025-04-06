@@ -22,7 +22,9 @@ export async function GET(request: Request) {
         lastName: true,
         department: true,
         email: true,
-        status: true
+        status: true,
+        role: true,
+        joinDate: true
       },
       orderBy: {
         lastName: 'asc'
@@ -42,9 +44,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { firstName, lastName, email, department, status } = body
+    const { firstName, lastName, email, department, status, role } = body
 
-    if (!firstName || !lastName || !email || !department) {
+    if (!firstName || !lastName || !email || !department || !role) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -69,7 +71,9 @@ export async function POST(request: Request) {
         lastName,
         email,
         department,
-        status: status || 'active'
+        role,
+        status: status || 'active',
+        joinDate: new Date() // Set join date to current date
       },
       select: {
         id: true,
@@ -77,7 +81,9 @@ export async function POST(request: Request) {
         lastName: true,
         department: true,
         email: true,
-        status: true
+        status: true,
+        role: true,
+        joinDate: true
       }
     })
 

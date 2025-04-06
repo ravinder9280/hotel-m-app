@@ -16,9 +16,9 @@ export async function POST() {
         lastName: 'Department',
         email: 'emergency@hospital.com',
         department: 'Emergency',
-        role: 'ADMIN',
+        role: 'Department',
         joinDate: new Date(),
-        status: 'ACTIVE'
+        status: 'active'
       }
     });
 
@@ -28,9 +28,9 @@ export async function POST() {
         lastName: 'Department',
         email: 'surgery@hospital.com',
         department: 'Surgery',
-        role: 'ADMIN',
+        role: 'Department',
         joinDate: new Date(),
-        status: 'ACTIVE'
+        status: 'active'
       }
     });
 
@@ -40,54 +40,54 @@ export async function POST() {
         lastName: 'Department',
         email: 'pediatrics@hospital.com',
         department: 'Pediatrics',
-        role: 'ADMIN',
+        role: 'Department',
         joinDate: new Date(),
-        status: 'ACTIVE'
+        status: 'active'
       }
     });
 
-    // Create staff members
-    const staffMembers = [
+    // Create sample staff members
+    const staff = [
       {
         firstName: 'John',
         lastName: 'Doe',
         email: 'john.doe@hospital.com',
         department: 'Emergency',
-        role: 'DOCTOR',
+        role: 'Doctor',
         joinDate: new Date(),
-        status: 'ACTIVE'
+        status: 'active'
       },
       {
         firstName: 'Jane',
         lastName: 'Smith',
         email: 'jane.smith@hospital.com',
         department: 'Surgery',
-        role: 'NURSE',
+        role: 'Nurse',
         joinDate: new Date(),
-        status: 'ACTIVE'
+        status: 'active'
       },
       {
         firstName: 'Mike',
         lastName: 'Johnson',
         email: 'mike.johnson@hospital.com',
         department: 'Pediatrics',
-        role: 'DOCTOR',
+        role: 'Doctor',
         joinDate: new Date(),
-        status: 'ACTIVE'
+        status: 'active'
       }
     ];
 
-    for (const staff of staffMembers) {
+    for (const staffMember of staff) {
       await prisma.staff.create({
-        data: staff
+        data: staffMember
       });
     }
 
-    return NextResponse.json({ message: 'Database seeded successfully' });
+    return NextResponse.json({ message: 'Staff seeded successfully' });
   } catch (error) {
-    console.error('Error seeding database:', error);
+    console.error('Error seeding staff:', error);
     return NextResponse.json(
-      { error: 'Failed to seed database' },
+      { error: 'Failed to seed staff' },
       { status: 500 }
     );
   }

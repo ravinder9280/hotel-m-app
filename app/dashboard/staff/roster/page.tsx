@@ -66,7 +66,7 @@ export default function StaffRosterPage() {
       if (!response.ok) throw new Error('Failed to fetch shifts');
       const data = await response.json();
       setShifts(data);
-      calculateDepartmentWorkload(data);
+      calculateDepartmentWorkload(data, staff);
     } catch (error) {
       console.error('Error fetching shifts:', error);
       setError('Failed to fetch shifts');
@@ -83,7 +83,7 @@ export default function StaffRosterPage() {
       if (!response.ok) throw new Error('Failed to fetch staff');
       const data = await response.json();
       setStaff(data);
-      calculateDepartmentWorkload([]);
+      calculateDepartmentWorkload(shifts, data);
     } catch (error) {
       console.error('Error fetching staff:', error);
       setError('Failed to fetch staff list');
@@ -96,29 +96,26 @@ export default function StaffRosterPage() {
     fetchStaff();
   }, [date, department]);
 
-  const calculateDepartmentWorkload = (currentShifts: Shift[]) => {
-    try {
-      const departments = new Set(staff.map(s => s.department));
-      const workload = Array.from(departments).map(dept => {
-        const staffInDept = staff.filter(s => s.department === dept).length;
-        const shiftsInDept = currentShifts.filter(s => s.department === dept).length;
-        const requiredStaff = Math.ceil(staffInDept * 0.7); // 70% coverage requirement
-        const coverage = (shiftsInDept / requiredStaff) * 100;
+  const calculateDepartmentWorkload = (shifts: Shift[], staff: Staff[]) => {
+    const departments = new Set(staff.map(s => s.department));
+    const workload: DepartmentWorkload[] = [];
 
-        return {
-          department: dept,
-          requiredStaff,
-          currentStaff: staffInDept,
-          shiftsInDept,
-          coverage: Math.min(coverage, 100),
-        };
+    departments.forEach(dept => {
+      const staffInDept = staff.filter(s => s.department === dept).length;
+      const shiftsInDept = shifts.filter(s => s.department === dept).length;
+      const requiredStaff = Math.ceil(shiftsInDept * 0.7); // 70% coverage requirement
+      const coverage = Math.min(Math.round((staffInDept / requiredStaff) * 100), 100);
+
+      workload.push({
+        department: dept,
+        requiredStaff,
+        currentStaff: staffInDept,
+        shiftsInDept,
+        coverage
       });
+    });
 
-      setDepartmentWorkload(workload);
-    } catch (error) {
-      console.error('Error calculating workload:', error);
-      setError('Failed to calculate department workload');
-    }
+    setDepartmentWorkload(workload);
   };
 
   const handleAddShift = async (event: React.FormEvent<HTMLFormElement>) => {
