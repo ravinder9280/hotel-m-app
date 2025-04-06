@@ -18,15 +18,14 @@ import ErrorBoundary from "@/components/error-boundary";
 interface Shift {
   id: string;
   staffId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
   staff: {
     firstName: string;
     lastName: string;
     department: string;
   };
-  date: string;
-  startTime: string;
-  endTime: string;
-  department: string;
 }
 
 interface Staff {
@@ -34,6 +33,8 @@ interface Staff {
   firstName: string;
   lastName: string;
   department: string;
+  role: string;
+  status: string;
 }
 
 interface DepartmentWorkload {
@@ -102,7 +103,7 @@ export default function StaffRosterPage() {
 
     departments.forEach(dept => {
       const staffInDept = staff.filter(s => s.department === dept).length;
-      const shiftsInDept = shifts.filter(s => s.department === dept).length;
+      const shiftsInDept = shifts.filter(s => s.staff.department === dept).length;
       const requiredStaff = Math.ceil(shiftsInDept * 0.7); // 70% coverage requirement
       const coverage = Math.min(Math.round((staffInDept / requiredStaff) * 100), 100);
 
@@ -162,7 +163,7 @@ export default function StaffRosterPage() {
   };
 
   const filteredShifts = shifts.filter(shift => 
-    department === "all" || shift.department === department
+    department === "all" || shift.staff.department === department
   );
 
   if (error) {
@@ -340,9 +341,9 @@ export default function StaffRosterPage() {
                       <Users className="h-5 w-5 text-muted-foreground" />
                       <div>
                         <p className="font-medium">{`${shift.staff.firstName} ${shift.staff.lastName}`}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {shift.department}
-                        </p>
+                        <div className="text-sm text-muted-foreground">
+                          {shift.staff.department}
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">

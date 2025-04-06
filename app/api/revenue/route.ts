@@ -1,6 +1,15 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 
+interface Payment {
+  id: string;
+  amount: number;
+  paymentDate: Date;
+  paymentMethod: string;
+  status: string;
+  billId: string;
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -31,7 +40,7 @@ export async function GET(request: Request) {
     });
 
     // Format the data
-    const revenueData = payments.map(payment => ({
+    const revenueData = payments.map((payment: Payment) => ({
       id: payment.id,
       amount: payment.amount,
       date: payment.paymentDate.toISOString(),

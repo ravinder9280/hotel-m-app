@@ -91,8 +91,7 @@ export async function POST(request: Request) {
         staffId,
         date: new Date(date),
         startTime: new Date(startTime),
-        endTime: new Date(endTime),
-        department: staff.department
+        endTime: new Date(endTime)
       },
       include: {
         staff: {
