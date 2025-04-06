@@ -8,11 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar as CalendarIcon, Clock, Users, Loader2, Plus, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
 import ErrorBoundary from "@/components/error-boundary";
 
 interface Shift {
@@ -48,7 +47,7 @@ interface DepartmentWorkload {
 export default function StaffRosterPage() {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [department, setDepartment] = useState<string>("all");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [isAddingShift, setIsAddingShift] = useState(false);
@@ -58,6 +57,29 @@ export default function StaffRosterPage() {
   const [endTime, setEndTime] = useState<string>("17:00");
   const [departmentWorkload, setDepartmentWorkload] = useState<DepartmentWorkload[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await fetch('/api/staff/initial-data');
+        if (!response.ok) throw new Error('Failed to fetch initial data');
+        const data = await response.json();
+        setShifts(data.shifts);
+        setStaff(data.staff);
+        setDepartmentWorkload(data.departmentWorkload);
+      } catch (error) {
+        console.error('Error fetching initial data:', error);
+        setError('Failed to load initial data');
+        toast.error('Failed to load initial data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchInitialData();
+  }, []);
 
   const fetchShifts = async () => {
     try {
@@ -76,26 +98,6 @@ export default function StaffRosterPage() {
       setLoading(false);
     }
   };
-
-  const fetchStaff = async () => {
-    try {
-      setError(null);
-      const response = await fetch('/api/staff');
-      if (!response.ok) throw new Error('Failed to fetch staff');
-      const data = await response.json();
-      setStaff(data);
-      calculateDepartmentWorkload(shifts, data);
-    } catch (error) {
-      console.error('Error fetching staff:', error);
-      setError('Failed to fetch staff list');
-      toast.error("Failed to fetch staff list");
-    }
-  };
-
-  useEffect(() => {
-    fetchShifts();
-    fetchStaff();
-  }, [date, department]);
 
   const calculateDepartmentWorkload = (shifts: Shift[], staff: Staff[]) => {
     const departments = new Set(staff.map(s => s.department));
@@ -274,7 +276,10 @@ export default function StaffRosterPage() {
               <Calendar
                 mode="single"
                 selected={date}
-                onSelect={setDate}
+                onSelect={(newDate) => {
+                  setDate(newDate);
+                  if (newDate) fetchShifts();
+                }}
                 className="rounded-md border"
               />
             </CardContent>
@@ -284,7 +289,10 @@ export default function StaffRosterPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Department Workload</CardTitle>
-                <Select value={department} onValueChange={setDepartment}>
+                <Select value={department} onValueChange={(value) => {
+                  setDepartment(value);
+                  fetchShifts();
+                }}>
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="Select department" />
                   </SelectTrigger>
@@ -350,7 +358,7 @@ export default function StaffRosterPage() {
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm">
-                          {shift.startTime} - {shift.endTime}
+                          {format(new Date(shift.startTime), "HH:mm")} - {format(new Date(shift.endTime), "HH:mm")}
                         </span>
                       </div>
                       <Button variant="outline" size="sm">
