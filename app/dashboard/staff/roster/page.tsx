@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import ErrorBoundary from "@/components/error-boundary";
 
 interface Shift {
   id: string;
@@ -54,10 +56,12 @@ export default function StaffRosterPage() {
   const [startTime, setStartTime] = useState<string>("09:00");
   const [endTime, setEndTime] = useState<string>("17:00");
   const [departmentWorkload, setDepartmentWorkload] = useState<DepartmentWorkload[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchShifts = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await fetch(`/api/staff/shifts?date=${format(date || new Date(), "yyyy-MM-dd")}&department=${department}`);
       if (!response.ok) throw new Error('Failed to fetch shifts');
       const data = await response.json();
@@ -65,6 +69,7 @@ export default function StaffRosterPage() {
       calculateDepartmentWorkload(data);
     } catch (error) {
       console.error('Error fetching shifts:', error);
+      setError('Failed to fetch shifts');
       toast.error("Failed to fetch shifts");
     } finally {
       setLoading(false);
@@ -73,6 +78,7 @@ export default function StaffRosterPage() {
 
   const fetchStaff = async () => {
     try {
+      setError(null);
       const response = await fetch('/api/staff');
       if (!response.ok) throw new Error('Failed to fetch staff');
       const data = await response.json();
@@ -80,6 +86,7 @@ export default function StaffRosterPage() {
       calculateDepartmentWorkload([]);
     } catch (error) {
       console.error('Error fetching staff:', error);
+      setError('Failed to fetch staff list');
       toast.error("Failed to fetch staff list");
     }
   };
@@ -90,31 +97,36 @@ export default function StaffRosterPage() {
   }, [date, department]);
 
   const calculateDepartmentWorkload = (currentShifts: Shift[]) => {
-    const departments = new Set(staff.map(s => s.department));
-    const workload = Array.from(departments).map(dept => {
-      const staffInDept = staff.filter(s => s.department === dept).length;
-      const shiftsInDept = currentShifts.filter(s => s.department === dept).length;
-      const requiredStaff = Math.ceil(staffInDept * 0.7); // 70% coverage requirement
-      const coverage = (shiftsInDept / requiredStaff) * 100;
+    try {
+      const departments = new Set(staff.map(s => s.department));
+      const workload = Array.from(departments).map(dept => {
+        const staffInDept = staff.filter(s => s.department === dept).length;
+        const shiftsInDept = currentShifts.filter(s => s.department === dept).length;
+        const requiredStaff = Math.ceil(staffInDept * 0.7); // 70% coverage requirement
+        const coverage = (shiftsInDept / requiredStaff) * 100;
 
-      return {
-        department: dept,
-        requiredStaff,
-        currentStaff: staffInDept,
-        shiftsInDept,
-        coverage: Math.min(coverage, 100),
-      };
-    });
+        return {
+          department: dept,
+          requiredStaff,
+          currentStaff: staffInDept,
+          shiftsInDept,
+          coverage: Math.min(coverage, 100),
+        };
+      });
 
-    setDepartmentWorkload(workload);
+      setDepartmentWorkload(workload);
+    } catch (error) {
+      console.error('Error calculating workload:', error);
+      setError('Failed to calculate department workload');
+    }
   };
 
   const handleAddShift = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsAddingShift(true);
+    setError(null);
 
     try {
-      // Combine date and time into proper DateTime strings
       const [year, month, day] = shiftDate.split('-');
       const startDateTime = new Date(`${year}-${month}-${day}T${startTime}:00`);
       const endDateTime = new Date(`${year}-${month}-${day}T${endTime}:00`);
@@ -145,6 +157,7 @@ export default function StaffRosterPage() {
       setEndTime("17:00");
     } catch (error) {
       console.error('Error adding shift:', error);
+      setError(error instanceof Error ? error.message : "Failed to add shift");
       toast.error(error instanceof Error ? error.message : "Failed to add shift");
     } finally {
       setIsAddingShift(false);
@@ -155,185 +168,204 @@ export default function StaffRosterPage() {
     department === "all" || shift.department === department
   );
 
-  return (
-    <div className="container mx-auto p-6">
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-4">
-          <CalendarIcon className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold tracking-tight">Staff Roster</h1>
-        </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Shift
+  if (error) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">Error</h2>
+            <p className="text-muted-foreground">{error}</p>
+            <Button onClick={() => window.location.reload()} className="mt-4">
+              Retry
             </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Shift</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleAddShift} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="staff">Staff Member</Label>
-                <Select value={selectedStaff} onValueChange={setSelectedStaff} required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select staff member" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <ErrorBoundary>
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <CalendarIcon className="h-8 w-8 text-primary" />
+            <h1 className="text-3xl font-bold tracking-tight">Staff Roster</h1>
+          </div>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Shift
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Shift</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleAddShift} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="staff">Staff Member</Label>
+                  <Select value={selectedStaff} onValueChange={setSelectedStaff} required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select staff member" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {staff.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.firstName} {member.lastName} - {member.department}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="date">Date</Label>
+                  <Input
+                    type="date"
+                    id="date"
+                    value={shiftDate}
+                    onChange={(e) => setShiftDate(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="startTime">Start Time</Label>
+                    <Input
+                      type="time"
+                      id="startTime"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="endTime">End Time</Label>
+                    <Input
+                      type="time"
+                      id="endTime"
+                      value={endTime}
+                      onChange={(e) => setEndTime(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+                <Button type="submit" className="w-full" disabled={isAddingShift}>
+                  {isAddingShift ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    'Add Shift'
+                  )}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Calendar</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Calendar
+                mode="single"
+                selected={date}
+                onSelect={setDate}
+                className="rounded-md border"
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Department Workload</CardTitle>
+                <Select value={department} onValueChange={setDepartment}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Select department" />
                   </SelectTrigger>
                   <SelectContent>
-                    {staff.map((member) => (
-                      <SelectItem key={member.id} value={member.id}>
-                        {member.firstName} {member.lastName} - {member.department}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="all">All Departments</SelectItem>
+                    <SelectItem value="Emergency">Emergency</SelectItem>
+                    <SelectItem value="Surgery">Surgery</SelectItem>
+                    <SelectItem value="Pediatrics">Pediatrics</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="date">Date</Label>
-                <Input
-                  type="date"
-                  id="date"
-                  value={shiftDate}
-                  onChange={(e) => setShiftDate(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="startTime">Start Time</Label>
-                  <Input
-                    type="time"
-                    id="startTime"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="endTime">End Time</Label>
-                  <Input
-                    type="time"
-                    id="endTime"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-              <Button type="submit" className="w-full" disabled={isAddingShift}>
-                {isAddingShift ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Adding...
-                  </>
-                ) : (
-                  'Add Shift'
-                )}
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Calendar</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Calendar
-              mode="single"
-              selected={date}
-              onSelect={setDate}
-              className="rounded-md border"
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Department Workload</CardTitle>
-              <Select value={department} onValueChange={setDepartment}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Select department" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Departments</SelectItem>
-                  <SelectItem value="Emergency">Emergency</SelectItem>
-                  <SelectItem value="Surgery">Surgery</SelectItem>
-                  <SelectItem value="Pediatrics">Pediatrics</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {departmentWorkload.map((dept) => (
-                <div key={dept.department} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">{dept.department}</span>
-                    <span className="text-sm text-muted-foreground">
-                      {dept.shiftsInDept} / {dept.requiredStaff} staff
-                    </span>
-                  </div>
-                  <Progress value={dept.coverage} className="h-2" />
-                  {dept.coverage < 70 && (
-                    <div className="flex items-center gap-2 text-yellow-600 text-sm">
-                      <AlertTriangle className="h-4 w-4" />
-                      <span>Low coverage - Additional staff needed</span>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Shifts</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex justify-center items-center h-32">
-              <Loader2 className="h-8 w-8 animate-spin" />
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {filteredShifts.map((shift) => (
-                <div
-                  key={shift.id}
-                  className="flex items-center justify-between p-4 border rounded-lg"
-                >
-                  <div className="flex items-center gap-4">
-                    <Users className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">{`${shift.staff.firstName} ${shift.staff.lastName}`}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {shift.department}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">
-                        {shift.startTime} - {shift.endTime}
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {departmentWorkload.map((dept) => (
+                  <div key={dept.department} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{dept.department}</span>
+                      <span className="text-sm text-muted-foreground">
+                        {dept.shiftsInDept} / {dept.requiredStaff} staff
                       </span>
                     </div>
-                    <Button variant="outline" size="sm">
-                      Edit
-                    </Button>
+                    <Progress value={dept.coverage} className="h-2" />
+                    {dept.coverage < 70 && (
+                      <div className="flex items-center gap-2 text-yellow-600 text-sm">
+                        <AlertTriangle className="h-4 w-4" />
+                        <span>Low coverage - Additional staff needed</span>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Shifts</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex justify-center items-center h-32">
+                <Loader2 className="h-8 w-8 animate-spin" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredShifts.map((shift) => (
+                  <div
+                    key={shift.id}
+                    className="flex items-center justify-between p-4 border rounded-lg"
+                  >
+                    <div className="flex items-center gap-4">
+                      <Users className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">{`${shift.staff.firstName} ${shift.staff.lastName}`}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {shift.department}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">
+                          {shift.startTime} - {shift.endTime}
+                        </span>
+                      </div>
+                      <Button variant="outline" size="sm">
+                        Edit
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </ErrorBoundary>
   );
 } 

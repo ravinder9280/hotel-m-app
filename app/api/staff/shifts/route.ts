@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 
+interface ShiftInput {
+  staffId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+}
+
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -11,28 +18,42 @@ export async function GET(request: Request) {
     const date = searchParams.get('date')
     const department = searchParams.get('department')
 
+    if (!date) {
+      return NextResponse.json(
+        { error: 'Date parameter is required' },
+        { status: 400 }
+      )
+    }
+
+    const whereClause: any = {
+      date: new Date(date)
+    }
+
+    if (department && department !== 'all') {
+      whereClause.staff = {
+        department: department
+      }
+    }
+
     const shifts = await prisma.shift.findMany({
-      where: {
-        date: date ? new Date(date) : undefined,
-        staff: {
-          department: department && department !== 'all' ? department : undefined,
-        },
-      },
+      where: whereClause,
       include: {
-        staff: true,
+        staff: {
+          select: {
+            firstName: true,
+            lastName: true,
+            department: true
+          }
+        }
       },
-      orderBy: { date: 'desc' },
+      orderBy: {
+        startTime: 'asc'
+      }
     })
 
-    // Add department to each shift for frontend use
-    const shiftsWithDepartment = shifts.map(shift => ({
-      ...shift,
-      department: shift.staff.department,
-    }))
-
-    return NextResponse.json(shiftsWithDepartment)
+    return NextResponse.json(shifts)
   } catch (error) {
-    console.error('Failed to fetch shifts:', error)
+    console.error('Error fetching shifts:', error)
     return NextResponse.json(
       { error: 'Failed to fetch shifts' },
       { status: 500 }
@@ -43,50 +64,50 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
+    const { staffId, date, startTime, endTime } = body as ShiftInput
+
+    if (!staffId || !date || !startTime || !endTime) {
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      )
+    }
+
+    // Get staff department
     const staff = await prisma.staff.findUnique({
-      where: { id: body.staffId },
-      select: { department: true },
+      where: { id: staffId },
+      select: { department: true }
     })
 
     if (!staff) {
       return NextResponse.json(
-        { error: 'Staff not found' },
+        { error: 'Staff member not found' },
         { status: 404 }
-      )
-    }
-
-    // Validate that end time is after start time
-    const startTime = new Date(body.startTime)
-    const endTime = new Date(body.endTime)
-    
-    if (endTime <= startTime) {
-      return NextResponse.json(
-        { error: 'End time must be after start time' },
-        { status: 400 }
       )
     }
 
     const shift = await prisma.shift.create({
       data: {
-        staffId: body.staffId,
-        date: new Date(body.date),
-        startTime: startTime,
-        endTime: endTime,
+        staffId,
+        date: new Date(date),
+        startTime: new Date(startTime),
+        endTime: new Date(endTime),
+        department: staff.department
       },
       include: {
-        staff: true,
-      },
+        staff: {
+          select: {
+            firstName: true,
+            lastName: true,
+            department: true
+          }
+        }
+      }
     })
 
-    // Add department to the response for frontend use
-    const responseShift = {
-      ...shift,
-      department: staff.department,
-    }
-
-    return NextResponse.json(responseShift)
+    return NextResponse.json(shift, { status: 201 })
   } catch (error) {
-    console.error('Failed to create shift:', error)
+    console.error('Error creating shift:', error)
     return NextResponse.json(
       { error: 'Failed to create shift' },
       { status: 500 }

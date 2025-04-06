@@ -8,23 +8,30 @@ export const revalidate = 0
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const search = searchParams.get('search') || ''
+    const department = searchParams.get('department')
+
+    const whereClause = department && department !== 'all' 
+      ? { department } 
+      : {}
 
     const staff = await prisma.staff.findMany({
-      where: {
-        OR: [
-          { firstName: { contains: search, mode: 'insensitive' } },
-          { lastName: { contains: search, mode: 'insensitive' } },
-          { email: { contains: search, mode: 'insensitive' } },
-          { department: { contains: search, mode: 'insensitive' } },
-        ],
+      where: whereClause,
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        department: true,
+        email: true,
+        status: true
       },
-      orderBy: { joinDate: 'desc' },
+      orderBy: {
+        lastName: 'asc'
+      }
     })
 
     return NextResponse.json(staff)
   } catch (error) {
-    console.error('Failed to fetch staff:', error)
+    console.error('Error fetching staff:', error)
     return NextResponse.json(
       { error: 'Failed to fetch staff' },
       { status: 500 }
@@ -35,21 +42,48 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const staff = await prisma.staff.create({
-      data: {
-        firstName: body.firstName,
-        lastName: body.lastName,
-        email: body.email,
-        role: body.role,
-        department: body.department,
-        joinDate: new Date(body.joinDate),
-        status: 'Active',
-      },
+    const { firstName, lastName, email, department, status } = body
+
+    if (!firstName || !lastName || !email || !department) {
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      )
+    }
+
+    // Check if email already exists
+    const existingStaff = await prisma.staff.findUnique({
+      where: { email }
     })
 
-    return NextResponse.json(staff)
+    if (existingStaff) {
+      return NextResponse.json(
+        { error: 'Email already exists' },
+        { status: 409 }
+      )
+    }
+
+    const staff = await prisma.staff.create({
+      data: {
+        firstName,
+        lastName,
+        email,
+        department,
+        status: status || 'active'
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        department: true,
+        email: true,
+        status: true
+      }
+    })
+
+    return NextResponse.json(staff, { status: 201 })
   } catch (error) {
-    console.error('Failed to create staff:', error)
+    console.error('Error creating staff:', error)
     return NextResponse.json(
       { error: 'Failed to create staff' },
       { status: 500 }
