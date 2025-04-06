@@ -36,8 +36,9 @@ interface Staff {
 
 interface DepartmentWorkload {
   department: string;
-  staffCount: number;
   requiredStaff: number;
+  currentStaff: number;
+  shiftsInDept: number;
   coverage: number;
 }
 
@@ -98,8 +99,9 @@ export default function StaffRosterPage() {
 
       return {
         department: dept,
-        staffCount: staffInDept,
         requiredStaff,
+        currentStaff: staffInDept,
+        shiftsInDept,
         coverage: Math.min(coverage, 100),
       };
     });

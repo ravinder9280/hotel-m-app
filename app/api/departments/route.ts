@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 
-export async function GET(request: Request) {
+interface StaffMember {
+  department: string;
+}
+
+export async function GET() {
   try {
     // Get all staff members
     const staffMembers = await prisma.staff.findMany({
@@ -10,23 +14,12 @@ export async function GET(request: Request) {
       },
     });
 
-    // Extract unique departments
-    const uniqueDepartments = [...new Set(staffMembers.map(staff => staff.department))];
+    // Convert to array and filter unique departments
+    const departments = Array.from(new Set(staffMembers.map((staff: StaffMember) => staff.department)));
     
-    // Count staff in each department
-    const departmentsWithCount = uniqueDepartments.map(dept => {
-      const staffCount = staffMembers.filter(staff => staff.department === dept).length;
-      return {
-        id: dept, // Use department name as ID since we don't have a separate table
-        name: dept,
-        description: `${dept} department`,
-        staffCount,
-      };
-    });
-
-    return NextResponse.json(departmentsWithCount);
+    return NextResponse.json(departments);
   } catch (error) {
-    console.error('Failed to fetch departments:', error);
+    console.error('Error fetching departments:', error);
     return NextResponse.json(
       { error: 'Failed to fetch departments' },
       { status: 500 }
